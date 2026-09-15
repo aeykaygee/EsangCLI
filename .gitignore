@@ -1,0 +1,9 @@
+# Local settings contain your treadmill's BLE address - never commit
+settings.toml
+
+# BLE capture logs
+*.log
+
+# Python
+__pycache__/
+*.pyc

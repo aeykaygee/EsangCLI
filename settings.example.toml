@@ -1,0 +1,21 @@
+# Example settings for the EsangCLI treadmill TUI.
+# Copy to settings.toml and fill in your treadmill's address:
+#   copy settings.example.toml settings.toml   (Windows)
+#   cp settings.example.toml settings.toml     (macOS/Linux)
+# Or leave address empty — the app scans for the treadmill on startup
+# and saves the found address back to your settings.toml.
+# Keep your real settings.toml local; never commit it.
+
+[treadmill]
+# BLE address of the EsangLinker module. Empty = auto-scan on startup.
+address = ""
+
+# Speed the belt starts at when you press Right, in km/h.
+default_speed_kmh = 3.0
+
+# How much Up/Down arrows change the speed per press, in km/h.
+speed_step_kmh = 0.5
+
+# Step length used to estimate steps from distance, in meters.
+# Calibrate: walk 100 steps, measure the meters, divide by 100.
+stride_m = 0.75
