@@ -51,6 +51,46 @@ MAX_SPEED_KMH = 6.0
 HISTORY_QUERY = frame("a9fa0101")
 
 
+def _toml_basic_string(value) -> str:
+    """Quote and escape a value as a TOML basic string.
+
+    Prevents a stray quote/newline (e.g. from a scanned device address or a
+    hand-edited file) from producing malformed TOML or injecting extra keys
+    when settings are written back out.
+    """
+    out = ['"']
+    for ch in str(value):
+        if ch == "\\":
+            out.append("\\\\")
+        elif ch == '"':
+            out.append('\\"')
+        elif ch == "\n":
+            out.append("\\n")
+        elif ch == "\r":
+            out.append("\\r")
+        elif ch == "\t":
+            out.append("\\t")
+        elif ord(ch) < 0x20:
+            out.append(f"\\u{ord(ch):04x}")
+        else:
+            out.append(ch)
+    out.append('"')
+    return "".join(out)
+
+
+def _as_float(value, default: float, minimum: float | None = None) -> float:
+    """Coerce a loaded setting to a float, falling back to default on bad input."""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return default
+    if num != num or num in (float("inf"), float("-inf")):  # NaN / inf
+        return default
+    if minimum is not None and num < minimum:
+        return minimum
+    return num
+
+
 def load_settings(path: Path) -> dict:
     cfg = {
         "address": "",
@@ -62,6 +102,12 @@ def load_settings(path: Path) -> dict:
         with open(path, "rb") as f:
             data = tomllib.load(f).get("treadmill", {})
         cfg.update({k: v for k, v in data.items() if k in cfg})
+    # Validate/coerce: values come from a file that may be hand-edited or shared,
+    # and must not propagate untyped into the control path or back to disk.
+    cfg["address"] = str(cfg["address"] or "")
+    cfg["default_speed_kmh"] = _as_float(cfg["default_speed_kmh"], 3.0, minimum=0.0)
+    cfg["speed_step_kmh"] = _as_float(cfg["speed_step_kmh"], 0.5, minimum=0.0)
+    cfg["stride_m"] = _as_float(cfg["stride_m"], STRIDE_M, minimum=0.01)
     return cfg
 
 
@@ -70,17 +116,17 @@ def save_settings(path: Path, cfg: dict) -> None:
         "[treadmill]\n"
         "# BLE address of the EsangLinker module. Leave empty to auto-scan on startup\n"
         "# (found address is saved back to this file).\n"
-        f'address = "{cfg["address"]}"\n'
+        f"address = {_toml_basic_string(cfg['address'])}\n"
         "\n"
         "# Speed the belt starts at when you press Right, in km/h.\n"
-        f'default_speed_kmh = {cfg["default_speed_kmh"]}\n'
+        f"default_speed_kmh = {_as_float(cfg['default_speed_kmh'], 3.0, minimum=0.0)}\n"
         "\n"
         "# How much Up/Down arrows change the speed per press, in km/h.\n"
-        f'speed_step_kmh = {cfg["speed_step_kmh"]}\n'
+        f"speed_step_kmh = {_as_float(cfg['speed_step_kmh'], 0.5, minimum=0.0)}\n"
         "\n"
         "# Step length used to estimate steps from distance, in meters.\n"
         "# Calibrate: walk 100 steps, measure the meters, divide by 100.\n"
-        f'stride_m = {cfg["stride_m"]}\n'
+        f"stride_m = {_as_float(cfg['stride_m'], STRIDE_M, minimum=0.01)}\n"
     )
 
 
